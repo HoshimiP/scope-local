@@ -14,3 +14,4 @@ spin = { version = "0.9", default-features = false, features = ["lazy"] }
 
 [dev-dependencies]
 ctor = "0.4.2"
+serial_test = "3"
