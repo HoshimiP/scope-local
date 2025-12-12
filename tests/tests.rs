@@ -71,7 +71,9 @@ fn nested() {
 static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 #[allow(dead_code)]
-struct Counter;
+struct Counter {
+    id: usize,
+}
 
 impl Drop for Counter {
     fn drop(&mut self) {
@@ -80,7 +82,7 @@ impl Drop for Counter {
 }
 
 scope_local! {
-    static COUNTER: Arc<Counter> = Arc::new(Counter);
+    static COUNTER: Arc<Counter> = Arc::new(Counter{id: 0});
 }
 
 #[test]
@@ -89,9 +91,10 @@ fn drop() {
     DROP_COUNT.store(0, Ordering::SeqCst);
 
     let handles: Vec<_> = (0..9)
-        .map(|_| {
+        .map(|i| {
             thread::spawn(move || {
-                let _scope = Scope::new();
+                let mut scope = Scope::new();
+                *COUNTER.scope_mut(&mut scope) = Arc::new(Counter { id: i });
             })
         })
         .collect();
@@ -101,10 +104,11 @@ fn drop() {
     }
 
     let panic = panic::catch_unwind(|| {
-        let _scope = Scope::new();
+        let mut scope = Scope::new();
+        *COUNTER.scope_mut(&mut scope) = Arc::new(Counter { id: 99 });
         panic!("panic");
     });
     assert!(panic.is_err());
 
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 10);
+    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 20);
 }
