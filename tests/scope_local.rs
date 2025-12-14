@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    thread,
+};
 
 use ctor::ctor;
 use scope_local::{ActiveScope, Scope, scope_local};
@@ -54,4 +57,44 @@ fn shared() {
     }
 
     assert_eq!(Arc::strong_count(&SHARED), 1);
+}
+
+#[test]
+fn isolation() {
+    let handles: Vec<_> = (0..10)
+        .map(|i| {
+            thread::spawn(move || {
+                let mut scope = Scope::new();
+                *DATA.scope_mut(&mut scope) = i;
+
+                unsafe { ActiveScope::set(&scope) };
+                assert_eq!(*DATA, i);
+
+                ActiveScope::set_global();
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    assert_eq!(*DATA, 0);
+}
+
+#[test]
+fn nested() {
+    let mut outer = Scope::new();
+    unsafe { ActiveScope::set(&outer) };
+    *DATA.scope_mut(&mut outer) = 1;
+
+    let mut inner = Scope::new();
+    unsafe { ActiveScope::set(&inner) };
+    *DATA.scope_mut(&mut inner) = 2;
+    assert_eq!(*DATA, 2);
+
+    unsafe { ActiveScope::set(&outer) };
+    assert_eq!(*DATA, 1);
+
+    ActiveScope::set_global();
 }
