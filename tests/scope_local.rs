@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    thread,
-};
+use std::{panic, sync::Arc, thread};
 
 use ctor::ctor;
 use scope_local::{ActiveScope, Scope, scope_local};
@@ -55,6 +52,31 @@ fn shared() {
         assert_eq!(Arc::strong_count(&SHARED), 2);
         assert!(Arc::ptr_eq(&SHARED, &SHARED.scope(&scope)));
     }
+
+    assert_eq!(Arc::strong_count(&SHARED), 1);
+
+    let handles: Vec<_> = (0..10)
+        .map(|_| {
+            thread::spawn(move || {
+                let mut scope = Scope::new();
+                *SHARED.scope_mut(&mut scope) = SHARED.clone();
+                assert!(Arc::strong_count(&SHARED) >= 2);
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    assert_eq!(Arc::strong_count(&SHARED), 1);
+
+    let panic = panic::catch_unwind(|| {
+        let mut scope = Scope::new();
+        *SHARED.scope_mut(&mut scope) = SHARED.clone();
+        panic!("panic");
+    });
+    assert!(panic.is_err());
 
     assert_eq!(Arc::strong_count(&SHARED), 1);
 }
