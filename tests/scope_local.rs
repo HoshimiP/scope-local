@@ -71,6 +71,30 @@ fn shared() {
 
     assert_eq!(Arc::strong_count(&SHARED), 1);
 
+    {
+        let mut scope = Scope::new();
+        *SHARED.scope_mut(&mut scope) = SHARED.clone();
+        let scope = Arc::new(scope);
+
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let scope = scope.clone();
+                thread::spawn(move || {
+                    unsafe { ActiveScope::set(&scope) };
+                    assert_eq!(Arc::strong_count(&SHARED), 2);
+                    assert_eq!(*SHARED, Arc::new("qwq".to_string()));
+                    ActiveScope::set_global();
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
+    }
+
+    assert_eq!(Arc::strong_count(&SHARED), 1);
+
     let panic = panic::catch_unwind(|| {
         let mut scope = Scope::new();
         *SHARED.scope_mut(&mut scope) = SHARED.clone();
