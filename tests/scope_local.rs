@@ -65,15 +65,21 @@ fn shared() {
     assert_eq!(Arc::strong_count(&SHARED), 1);
 }
 
+scope_local! {
+    static T_SHARED: Arc<String> = Arc::new("qwq".to_string());
+}
+
 #[test]
 fn threads_shared() {
+    assert_eq!(Arc::strong_count(&SHARED), 1);
+
     let handles: Vec<_> = (0..10)
         .map(|_| {
             thread::spawn(move || {
                 let mut scope = Scope::new();
-                *SHARED.scope_mut(&mut scope) = SHARED.clone();
-                assert!(Arc::strong_count(&SHARED) >= 2);
-                assert_eq!(*SHARED, Arc::new("qwq".to_string()));
+                *T_SHARED.scope_mut(&mut scope) = T_SHARED.clone();
+                assert!(Arc::strong_count(&T_SHARED) >= 2);
+                assert_eq!(*T_SHARED, Arc::new("qwq".to_string()));
             })
         })
         .collect();
@@ -82,11 +88,11 @@ fn threads_shared() {
         h.join().unwrap();
     }
 
-    assert_eq!(Arc::strong_count(&SHARED), 1);
+    assert_eq!(Arc::strong_count(&T_SHARED), 1);
 
     {
         let mut scope = Scope::new();
-        *SHARED.scope_mut(&mut scope) = SHARED.clone();
+        *T_SHARED.scope_mut(&mut scope) = T_SHARED.clone();
         let scope = Arc::new(scope);
 
         let handles: Vec<_> = (0..10)
@@ -94,8 +100,8 @@ fn threads_shared() {
                 let scope = scope.clone();
                 thread::spawn(move || {
                     unsafe { ActiveScope::set(&scope) };
-                    assert_eq!(Arc::strong_count(&SHARED), 2);
-                    assert_eq!(*SHARED, Arc::new("qwq".to_string()));
+                    assert_eq!(Arc::strong_count(&T_SHARED), 2);
+                    assert_eq!(*T_SHARED, Arc::new("qwq".to_string()));
                     ActiveScope::set_global();
                 })
             })
@@ -106,7 +112,7 @@ fn threads_shared() {
         }
     }
 
-    assert_eq!(Arc::strong_count(&SHARED), 1);
+    assert_eq!(Arc::strong_count(&T_SHARED), 1);
 }
 
 #[test]
