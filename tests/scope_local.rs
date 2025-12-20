@@ -55,12 +55,25 @@ fn shared() {
 
     assert_eq!(Arc::strong_count(&SHARED), 1);
 
+    let panic = panic::catch_unwind(|| {
+        let mut scope = Scope::new();
+        *SHARED.scope_mut(&mut scope) = SHARED.clone();
+        panic!("panic");
+    });
+    assert!(panic.is_err());
+
+    assert_eq!(Arc::strong_count(&SHARED), 1);
+}
+
+#[test]
+fn threads_shared() {
     let handles: Vec<_> = (0..10)
         .map(|_| {
             thread::spawn(move || {
                 let mut scope = Scope::new();
                 *SHARED.scope_mut(&mut scope) = SHARED.clone();
                 assert!(Arc::strong_count(&SHARED) >= 2);
+                assert_eq!(*SHARED, Arc::new("qwq".to_string()));
             })
         })
         .collect();
@@ -92,15 +105,6 @@ fn shared() {
             h.join().unwrap();
         }
     }
-
-    assert_eq!(Arc::strong_count(&SHARED), 1);
-
-    let panic = panic::catch_unwind(|| {
-        let mut scope = Scope::new();
-        *SHARED.scope_mut(&mut scope) = SHARED.clone();
-        panic!("panic");
-    });
-    assert!(panic.is_err());
 
     assert_eq!(Arc::strong_count(&SHARED), 1);
 }
