@@ -148,8 +148,8 @@ fn thread_share_scope() {
 #[test]
 fn thread_isolation() {
     scope_local! {
-        static DATA: usize = 0;
-        static DATA2: AtomicUsize = AtomicUsize::new(0);
+        static DATA: usize = 42;
+        static DATA2: AtomicUsize = AtomicUsize::new(42);
     }
 
     let handles: Vec<_> = (0..10)
@@ -172,6 +172,6 @@ fn thread_isolation() {
         h.join().unwrap();
     }
 
-    assert_eq!(*DATA, 0);
-    assert_eq!(DATA2.load(Ordering::Relaxed), 0);
+    assert_eq!(*DATA, 42);
+    assert_eq!(DATA2.load(Ordering::Relaxed), 42);
 }
