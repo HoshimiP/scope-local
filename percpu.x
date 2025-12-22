@@ -9,7 +9,8 @@ SECTIONS
         _percpu_load_start = .;
         *(.percpu .percpu.*)
         _percpu_load_end = .;
-        . = _percpu_load_start + ALIGN(64) * CPU_NUM;
+        _percpu_load_end_aligned = ALIGN(64);
+        . = _percpu_load_start + (_percpu_load_end_aligned - _percpu_load_start) * CPU_NUM;
     }
     . = _percpu_end;
 }
